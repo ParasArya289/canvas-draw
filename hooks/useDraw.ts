@@ -45,5 +45,31 @@ export const useDraw = (
       window.removeEventListener("mouseup", mouseUpHandler);
     };
   }, [onDraw]);
-  return { canvasRef, mouseDown };
+
+  const downloadCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const dataURL = canvas.toDataURL("image/jpg");
+    const link = document.createElement("a");
+    link.href = dataURL;
+    const tempCanvas = document.createElement("canvas");
+    tempCanvas.width = canvas.width;
+    tempCanvas.height = canvas.height;
+    const tempCtx = tempCanvas.getContext("2d");
+    if (!tempCtx) return;
+
+    // Draw the white background
+    tempCtx.fillStyle = "#ffffff";
+    tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+    // Draw the existing canvas drawing onto the temporary canvas
+    tempCtx.drawImage(canvas, 0, 0);
+
+    link.download = "canvas-drawing.jpg";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+  return { canvasRef, mouseDown, downloadCanvas };
 };
