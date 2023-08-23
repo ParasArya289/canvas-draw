@@ -1,77 +1,59 @@
 "use client";
 import { useDraw } from "@/hooks/useDraw";
-import { FC, useRef, useState } from "react";
+import { drawLine } from "@/utils/drawLine";
+import { FC, useEffect, useState } from "react";
+import { io } from "socket.io-client";
+
+const socket = io("http://localhost:3001/");
 
 interface pageProps {}
 
+type DrawLine = {
+  prevPoint: Point | null;
+  currentPoint: Point;
+  color: string;
+  eraserMode: boolean;
+};
+
 const page: FC<pageProps> = ({}) => {
   const [eraserMode, setEraserMode] = useState<boolean>(false);
-  const [shape, setShape] = useState<string | null>(null);
+  // const [shape, setShape] = useState<string | null>(null);
   const [color, setColor] = useState<string>("#000");
 
-  const { canvasRef, mouseDown, downloadCanvas } = useDraw(drawLine);
+  const { canvasRef, mouseDown, downloadCanvas } = useDraw(createLine);
 
-  const snapshotRef = useRef();
-
-  function drawLine({ prevPoint, currentPoint, ctx }: Draw) {
-    const { x: currX, y: currY } = currentPoint;
-    const lineColor = eraserMode ? "rgba(255,255,255,1)" : color;
-    const lineWidth = eraserMode ? 50 : 5;
-    let startPoint = prevPoint ?? currentPoint;
-    if (!shape) {
-      if (eraserMode) {
-        // Set globalCompositeOperation to "destination-out" for erasing
-        ctx.globalCompositeOperation = "destination-out";
-      } else {
-        // Reset to default "source-over" mode for drawing
-        ctx.globalCompositeOperation = "source-over";
+  useEffect(() => {
+    const ctx = canvasRef.current?.getContext("2d");
+    socket.on(
+      "draw-line",
+      ({ prevPoint, currentPoint, color, eraserMode }: DrawLine) => {
+        if (!ctx) {
+          return;
+        }
+        drawLine({ prevPoint, currentPoint, ctx, color, eraserMode });
+        setColor(color);
       }
+    );
+  }, []);
 
-      ctx.beginPath();
-      ctx.lineWidth = lineWidth;
-      ctx.strokeStyle = lineColor;
-      ctx.moveTo(startPoint.x, startPoint.y);
-      ctx.lineTo(currX, currY);
-      ctx.stroke();
+  function createLine({ prevPoint, currentPoint, ctx }: Draw) {
+    socket.emit("draw-line", {
+      prevPoint,
+      currentPoint,
+      ctx,
+      color,
+      eraserMode,
+    });
 
-      ctx.fillStyle = lineColor;
-      ctx.beginPath();
-      ctx.arc(startPoint.x, startPoint.y, 2, 0, 2 * Math.PI);
-      ctx.fill();
-
-      ctx.putImageData(snapshotRef.current, 0, 0);
-      ctx.globalCompositeOperation = "source-over";
-    } else {
-      // ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-      snapshotRef.current = ctx.getImageData(
-        0,
-        0,
-        canvasRef.current?.width,
-        canvasRef.current?.height
-      );
-
-      const x = Math.min(0, currX);
-      const y = Math.min(0, currY);
-      const width = Math.abs(currX - 0);
-      const height = Math.abs(currY - 0);
-
-      ctx.beginPath();
-      ctx.lineWidth = lineWidth;
-      ctx.strokeStyle = lineColor;
-
-      // Draw the rectangle using the same operations you provided
-      ctx.rect(x, y, width, height);
-      ctx.stroke();
-
-      ctx.globalCompositeOperation = "source-over";
-    }
+    drawLine({ prevPoint, currentPoint, ctx, color, eraserMode });
   }
+
   const togglePenMode = () => {
     setEraserMode((prev) => !prev);
   };
-  const toggleRect = () => {
-    setShape((prev) => (prev === "rectangle" ? null : "rectangle"));
-  };
+  // const toggleRect = () => {
+  //   setShape((prev) => (prev === "rectangle" ? null : "rectangle"));
+  // };
   return (
     <div className="w-screen h-screen bg-white flex flex-row justify-center items-center gap-5">
       <div className="flex gap-2">
@@ -87,12 +69,12 @@ const page: FC<pageProps> = ({}) => {
         >
           {eraserMode ? "✏️" : "🧽"}
         </button>
-        <button
+        {/* <button
           onClick={toggleRect}
           className="p-2 bg-slate-400 rounded-md text-white"
         >
           {shape ? "❌" : "▭"}
-        </button>
+        </button> */}
         <input
           type="color"
           onChange={(e) => setColor(e.target.value)}
