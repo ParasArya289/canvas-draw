@@ -1,6 +1,6 @@
 "use client";
 import { useDraw } from "@/hooks/useDraw";
-import { FC, useState } from "react";
+import { FC, useRef, useState } from "react";
 
 interface pageProps {}
 
@@ -10,6 +10,8 @@ const page: FC<pageProps> = ({}) => {
   const [color, setColor] = useState<string>("#000");
 
   const { canvasRef, mouseDown, downloadCanvas } = useDraw(drawLine);
+
+  const snapshotRef = useRef();
 
   function drawLine({ prevPoint, currentPoint, ctx }: Draw) {
     const { x: currX, y: currY } = currentPoint;
@@ -37,9 +39,16 @@ const page: FC<pageProps> = ({}) => {
       ctx.arc(startPoint.x, startPoint.y, 2, 0, 2 * Math.PI);
       ctx.fill();
 
+      ctx.putImageData(snapshotRef.current, 0, 0);
       ctx.globalCompositeOperation = "source-over";
     } else {
-      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      // ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      snapshotRef.current = ctx.getImageData(
+        0,
+        0,
+        canvasRef.current?.width,
+        canvasRef.current?.height
+      );
 
       const x = Math.min(0, currX);
       const y = Math.min(0, currY);
