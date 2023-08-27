@@ -24,6 +24,22 @@ const page: FC<pageProps> = ({}) => {
 
   useEffect(() => {
     const ctx = canvasRef.current?.getContext("2d");
+    socket.emit("client-ready");
+
+    socket.on("get-canvas-state", () => {
+      if (!canvasRef.current?.toDataURL()) return;
+      socket.emit("canvas-state", canvasRef.current.toDataURL());
+    });
+
+    socket.on("canvas-state-from-server", (state: string) => {
+      alert("i got the image");
+      const img = new Image();
+      img.src = state;
+      img.onload = () => {
+        ctx?.drawImage(img, 0, 0);
+      };
+    });
+
     socket.on(
       "draw-line",
       ({ prevPoint, currentPoint, color, eraserMode }: DrawLine) => {
@@ -31,10 +47,17 @@ const page: FC<pageProps> = ({}) => {
           return;
         }
         drawLine({ prevPoint, currentPoint, ctx, color, eraserMode });
-        setColor(color);
       }
     );
-  }, []);
+    // socket.on("clear",clear)
+    return () => {
+      socket.off("get-canvas-state");
+      socket.off("canvas-state-from-server");
+      socket.off("canvas-state-from-server");
+      socket.off("draw-line");
+      // socket.off()
+    };
+  }, [canvasRef]);
 
   function createLine({ prevPoint, currentPoint, ctx }: Draw) {
     socket.emit("draw-line", {
@@ -69,12 +92,14 @@ const page: FC<pageProps> = ({}) => {
         >
           {eraserMode ? "✏️" : "🧽"}
         </button>
+
         {/* <button
           onClick={toggleRect}
           className="p-2 bg-slate-400 rounded-md text-white"
         >
           {shape ? "❌" : "▭"}
         </button> */}
+        
         <input
           type="color"
           onChange={(e) => setColor(e.target.value)}
